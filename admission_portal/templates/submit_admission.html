@@ -5,32 +5,52 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admission Form</title>
     <style>
+
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
+            font-family: Poppins, sans-serif;
+            background-size: cover;
             display: flex;
             justify-content: center;
-            padding: 20px;
+            align-items: center;
+            min-height: 50vh;
+            padding: 20;
         }
+        .back-video {
+            position: absolute;
+            width: auto;
+            height: auto;
+            z-index: -1;
+        }
+
+        @media (max-aspect-ratio: 16/9){
+            .back-video{
+                size: auto;
+            }
+        }
+
         .container {
+            position: relative;
+            top: 100px;
             width: 100%;
             max-width: 600px;
-            background-color: white;
+            background-color: transparent;
+            border: 2px solid gray;
+            border-radius: 20px;
+            box-shadow: 0 0 30px rgb(0, 0, 0);
             padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            margin: auto;
+            backdrop-filter: blur(20px);
         }
-        .container h2 {
+        .container h1 {
             text-align: center;
+            color: #ffffff;
             margin-bottom: 20px;
         }
         .form-group {
             margin-bottom: 15px;
         }
         .form-group label {
-            display: block;
             margin-bottom: 5px;
+            color: #ffffff;
             font-weight: bold;
         }
         .form-group input, 
@@ -38,9 +58,10 @@
         .form-group textarea {
             width: 100%;
             padding: 10px;
-            box-sizing: border-box;
-            border: 1px solid #ccc;
-            border-radius: 5px;
+            background: transparent;
+            border: none;
+            box-sizing:border-box;
+            border-bottom: 2px solid white;
         }
         .form-group button {
             width: 100%;
@@ -55,11 +76,15 @@
         .form-group button:hover {
             background-color: #0056b3;
         }
+        .ID{
+            
+        }
     </style>
 </head>
 <body>
+    <video type="video/mp4" autoplay loop muted plays-inline src="image/3255275-uhd_3840_2160_25fps.mp4" class="back-video"></video>
     <div class="container">
-        <h2>Admission Form</h2>
+        <h1>Admission Form</h2>
         <form action="/submit_admission" method="POST" enctype="multipart/form-data">
             <div class="form-group">
                 <label for="name">Name</label>
@@ -83,7 +108,7 @@
             </div>
             <div class="form-group">
                 <label for="id_proof">ID Proof (PAN/Aadhar/License) - PDF Only</label>
-                <input type="file" id="id_proof" name="id_proof" accept=".pdf" required>
+                <input type="file" class="ID" id="id_proof" name="id_proof" accept=".pdf" required>
             </div>
             <div class="form-group">
                 <label for="marksheet">Marksheet - PDF Only</label>
