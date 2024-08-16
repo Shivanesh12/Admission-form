@@ -2,48 +2,101 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Account Creation</title>
     <style>
+        *{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
         body {
-            font-family: Arial, sans-serif;
-            background-color: #ebe0c5e4;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-        }
-        .container {
-            background-color: white;
+            min-height: 100vh;
             padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
-        .container h2 {
-            text-align: center;
-            margin-bottom: 20px;
+        .back-video {
+            position: absolute;
+            width: auto;
+            height: auto;
+            z-index: -1;
         }
-        .form-group {
-            margin-bottom: 15px;
+
+        @media (max-aspect-ratio: 16/9){
+            .back-video{
+                size: auto;
+            }
         }
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
+
+        .container {
+            position: relative;
+            height: 600px;
+            width: 400px;
+            background-color: transparent;
+            border: 2px solid gray;
+            border-radius: 20px;
+            box-shadow: 0 0 30px rgb(0, 0, 0);
+            backdrop-filter: blur(20px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
-        .form-group input {
-            width: 100%;
-            padding: 6px;
-            box-sizing: border-box;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
-        .form-group button {
+
+        .container .form-group{
             width: 100%;
             padding: 10px;
-            background-color: #007bff;
+        }
+
+        .container h1 {
+            text-align: center;
+            color: #ffffff;
+            margin-bottom: 15px;
+        }
+
+        .container p{
+            position: absolute;
+            bottom: 30px;
+            font-size: 15px;
+        }
+
+        .form-group{
+            position: relative;
+            width: 100%;
+            height: 50px;
+            background: transparent;
+            border-bottom: 2px solid rgb(255, 255, 255);
+            margin: 30px 0;
+        }
+
+        .form-group input{
+            width: 100%;
+            height: 100%;
+            background: transparent;
             border: none;
-            border-radius: 5px;
+            outline: none;
+        }
+
+        .form-group label {
+            position: absolute;
+            top: 50%;
+            left: 5px;
+            transform: translateY(-50%);
+            font-size: 20px;
             color: white;
+            font-weight: 500;
+            pointer-events: none;
+        }
+
+        .form-group button {
+            position: relative;
+            border: none; 
+            width: 100%;
+            padding: 20px;
+            background-color: #007bff;
+            border-radius: 5px;
             font-size: 16px;
             cursor: pointer;
         }
@@ -53,10 +106,12 @@
     </style>
 </head>
 <body>
+    <video autoplay loop muted plays-inline class="background-clip">
+        <source src=" image/3255275-uhd_3840_2160_25fps.mp4" type="video/mp4">
+    </video>
     <div class="container">
-        <h2>Create an Account</h2>
+        <h1>Create an Account</h>
         <form action="/login" method="POST">
-            
             <div class="form-group">
                 <label for="email">Email</label>
                 <input type="email" id="email" name="email" required>
@@ -76,9 +131,9 @@
             </div>
             <div class="form-group">
                 <label for="confirmpassword">Confirm Password</label>
-                <input type="confirmpassword" id="confirmpassword" name="confirm-password" required>
+                <input type="password" id="confirmpassword" name="confirm-password" required>
             </div>
-            <div class="form-group">
+            <div class="button">
                 <button type="submit">Create Account</button>
             </div>
         </form>
