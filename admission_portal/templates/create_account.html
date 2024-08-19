@@ -18,18 +18,19 @@
             min-height: 100vh;
             padding: 20px;
         }
-        .back-video {
+        .background-clip {
             position: absolute;
             width: auto;
             height: auto;
             z-index: -1;
         }
 
-        @media (max-aspect-ratio: 16/9){
-            .back-video{
-                size: auto;
-            }
-        }
+        @media (max-aspect-ratio: 16/9) {
+    .background-clip {
+        background-size: cover;
+    }
+}
+
 
         .container {
             position: relative;
@@ -107,11 +108,11 @@
 </head>
 <body>
     <video autoplay loop muted plays-inline class="background-clip">
-        <source src=" image/3255275-uhd_3840_2160_25fps.mp4" type="video/mp4">
+        <source src="static/3255275-uhd_3840_2160_25fps.mp4" type="video/mp4">
     </video>
     <div class="container">
         <h1>Create an Account</h>
-        <form action="/login" method="POST">
+        <form action="{{ url_for('submit_admission')}}" method="POST">
             <div class="form-group">
                 <label for="email">Email</label>
                 <input type="email" id="email" name="email" required>

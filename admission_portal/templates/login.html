@@ -14,7 +14,7 @@
             min-height: 50vh;
             padding: 20;
         }
-        .back-video {
+        .background-clip {
             position: absolute;
             width: auto;
             height: auto;
@@ -22,7 +22,7 @@
         }
 
         @media (max-aspect-ratio: 16/9){
-            .back-video{
+            .background-clip{
                 size: auto;
             }
         }
@@ -120,10 +120,12 @@
     </style>
 </head>
 <body>
-    <video type="video/mp4" autoplay loop muted plays-inline src="image/3255275-uhd_3840_2160_25fps.mp4" class="back-video"></video>
+    <video autoplay loop muted plays-inline class="background-clip">
+        <source src="static/3255275-uhd_3840_2160_25fps.mp4" type="video/mp4">
+    </video>
     <div class="login-box">
         <h1>Login</h1>
-        <form action="/login" method="POST">
+        <form action="{{ url_for('login')}}" method="POST"> 
             <div class="form">
                 <label for="username or email">Username or Email</label>
                 <input type="text/mail" name="username" required>

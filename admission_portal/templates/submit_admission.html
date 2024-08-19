@@ -14,7 +14,7 @@
             min-height: 50vh;
             padding: 20;
         }
-        .back-video {
+        .background-clip {
             position: absolute;
             width: auto;
             height: auto;
@@ -22,7 +22,7 @@
         }
 
         @media (max-aspect-ratio: 16/9){
-            .back-video{
+            .background-clip{
                 size: auto;
             }
         }
@@ -78,10 +78,12 @@
     </style>
 </head>
 <body>
-    <video type="video/mp4" autoplay loop muted plays-inline src="image/3255275-uhd_3840_2160_25fps.mp4" class="back-video"></video>
+    <video autoplay loop muted plays-inline class="background-clip">
+        <source src="static/3255275-uhd_3840_2160_25fps.mp4" type="video/mp4">
+    </video>
     <div class="container">
-        <h1>Admission Form</h2>
-        <form action="/submit_admission" method="POST" enctype="multipart/form-data">
+        <h1>Admission Form</h1>
+        <form action="{{ url_for('submit_admission')}}" method="POST" enctype="multipart/form-data">
             <div class="form-group">
                 <label for="name">Name</label>
                 <input type="text" id="name" name="name" required>
