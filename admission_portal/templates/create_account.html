@@ -61,7 +61,16 @@
             position: absolute;
             bottom: 30px;
             font-size: 15px;
+
+        }.container a{
+            position: relative ;
+            left: 30% ;
+            top: 8px;
+            color: rgb(9, 10, 16);
+            font-size: 15px ;
         }
+
+
 
         .form-group{
             position: relative;
@@ -96,19 +105,19 @@
             border: none; 
             width: 100%;
             padding: 20px;
-            background-color: #007bff;
+            background-color: #60a1d6;
             border-radius: 5px;
             font-size: 16px;
             cursor: pointer;
         }
         .form-group button:hover {
-            background-color: #0056b3;
+            background-color: #02060a;
         }
     </style>
 </head>
 <body>
     <video autoplay loop muted plays-inline class="background-clip">
-        <source src="static/3255275-uhd_3840_2160_25fps.mp4" type="video/mp4">
+        <source src="{{ url_for('static', filename='3255275-uhd_3840_2160_25fps.mp4') }}" type="video/mp4">
     </video>
     <div class="container">
         <h1>Create an Account</h>
@@ -138,7 +147,8 @@
                 <button type="submit">Create Account</button>
             </div>
         </form>
-        <p style="text-align: center;">Already have an account? <a href="/login">Login here</a>.</p>
+        <p style="text-align: center;">Already have an account? .</p><a href="{{ url_for('login') }}">Login</a>
+        .</p>
     </div>
 </body>
 </html>

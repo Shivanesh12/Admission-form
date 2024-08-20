@@ -1,41 +1,30 @@
-from flask import Flask, render_template, redirect, request, url_for, flash, session
-import pandas as pd
+from flask import Flask, render_template, request, redirect, url_for, session
+from werkzeug.security import generate_password_hash, check_password_hash
+import sqlite3
 import os
-from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
-# Use absolute paths
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-USER_DATA_FILE = os.path.join(BASE_DIR, 'database', 'user_data.xlsx')
-ADMISSION_DATA_FILE = os.path.join(BASE_DIR, 'database', 'admission_data.xlsx')
-UPLOAD_FOLDER = os.path.join(BASE_DIR, 'database', 'uploads')
 
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+def init_db():
+    conn = sqlite3.connect('admission_portal.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS users
+                 (id INTEGER PRIMARY KEY, email TEXT, username TEXT, phone TEXT, password TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS admissions
+                 (id INTEGER PRIMARY KEY, user_id INTEGER, name TEXT, contact_number TEXT, 
+                 father_name TEXT, mother_name TEXT, address TEXT, id_proof TEXT, 
+                 marksheet TEXT, fees_paid REAL, payment_date TEXT, total_amount REAL, 
+                 balance_amount REAL, due_date TEXT, parent_contact TEXT)''')
+    conn.commit()
+    conn.close()
 
-def initialize_excel_files():
-    os.makedirs(os.path.dirname(USER_DATA_FILE), exist_ok=True)
-    os.makedirs(os.path.dirname(ADMISSION_DATA_FILE), exist_ok=True)
-    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+init_db()
 
-    if not os.path.exists(USER_DATA_FILE):
-        df = pd.DataFrame(columns=['Email', 'Username', 'Phone', 'Password'])
-        df.to_excel(USER_DATA_FILE, index=False)
-
-    if not os.path.exists(ADMISSION_DATA_FILE):
-        df = pd.DataFrame(columns=[
-            'Name', 'Contact', 'Father\'s Name', 'Mother\'s Name', 
-            'Address', 'Fees Paid', 'Payment Date',
-            'Total Amount', 'Balance Amount', 'Due Date',
-            'Parent Contact', 'ID Proof', 'Marksheet'
-        ])
-        df.to_excel(ADMISSION_DATA_FILE, index=False)
-
-initialize_excel_files()
 
 @app.route('/')
-def home():
+def index():
     return render_template('index.html')
 
 @app.route('/create_account', methods=['GET', 'POST'])
@@ -44,86 +33,131 @@ def create_account():
         email = request.form['email']
         username = request.form['username']
         phone = request.form['phone']
-        password = request.form['password']
-
-        if len(phone) != 10 or not phone.isdigit():
-            flash('Invalid phone number!')
-            return redirect(url_for('create_account'))
-
-        df = pd.read_excel(USER_DATA_FILE)
-        new_row = pd.DataFrame({'Email': [email], 'Username': [username], 'Phone': [phone], 'Password': [password]})
-        df = pd.concat([df, new_row], ignore_index=True)
-        df.to_excel(USER_DATA_FILE, index=False)
-
-        flash('Account created successfully!')
+        password = generate_password_hash(request.form['password'])
+        
+        try:
+            conn = sqlite3.connect('admission_portal.db')
+            c = conn.cursor()
+            c.execute("INSERT INTO users (email, username, phone, password) VALUES (?, ?, ?, ?)",
+                     (email, username, phone, password))
+            conn.commit()
+            print(f"User created: {username}, {email}")
+        except sqlite3.Error as e:
+            print(f"Database error: {e}")
+            return "An error occurred while creating the account."
+        finally:
+            conn.close()
+        
         return redirect(url_for('login'))
-
     return render_template('create_account.html')
+
+@app.route('/check_users')
+def check_users():
+    try:
+        conn = sqlite3.connect('admission_portal.db')
+        c = conn.cursor()
+        c.execute("SELECT id, email, username, phone FROM users")
+        users = c.fetchall()
+        conn.close()
+        return f"Users in database: {users}"
+    except sqlite3.Error as e :
+        return f"An error occured: {e}"
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username_or_email = request.form['username']
+        username = request.form['username']
         password = request.form['password']
-
-        df = pd.read_excel(USER_DATA_FILE)
-        user = df[(df['Email'] == username_or_email) | (df['Username'] == username_or_email)]
-        if not user.empty and user.iloc[0]['Password'] == password:
-            session['user'] = user.iloc[0]['Username']
-            flash('Login successful!')
-            return redirect(url_for('home'))
-        else:
-            flash('Invalid username or password!')
-
+        
+        try:
+            conn = sqlite3.connect('admission_portal.db')
+            c = conn.cursor()
+            c.execute("SELECT * FROM users WHERE username = ? OR email = ?", (username, username))
+            user = c.fetchone()
+            conn.close()
+        
+            if user:
+                if check_password_hash(user[4], password):
+                    session['user_id'] = user[0]
+                    print(f"User {user[0]} logged in successfully")
+                    return redirect(url_for('submit_admission'))
+                else:
+                    print(f"Invalid password for user {username}")
+                    return "Invalid username or password"
+            else:
+                print(f"Invalid password for user {username}")
+                return "Invalid username or password"
+        except sqlite3.Error as e:
+            print(f"Database error: {e}")
+            return "An error occured during login"
     return render_template('login.html')
 
 @app.route('/submit_admission', methods=['GET', 'POST'])
 def submit_admission():
+
+    print(f"Current session: {session}")
+    if 'user_id' not in session:
+        print("User not in session, redirecting to login")
+        return redirect(url_for('login'))
+    
+    print(f"User {session['user_id']} accessing submit_admission")
+
     if request.method == 'POST':
+        # Extract form data
         name = request.form['name']
-        contact = request.form['contact']
-        fathers_name = request.form['fathers_name']
-        mothers_name = request.form['mothers_name']
+        contact_number = request.form['contact_number']
+        father_name = request.form['father_name']
+        mother_name = request.form['mother_name']
         address = request.form['address']
-        fees_paid = request.form['fees_paid']
+        id_proof = request.files['id_proof'].filename
+        marksheet = request.files['marksheet'].filename
+        fees_paid = float(request.form['fees_paid'])
         payment_date = request.form['payment_date']
-        total_amount = request.form['total_amount']
-        balance_amount = request.form['balance_amount']
+        total_amount = float(request.form['total_amount'])
+        balance_amount = float(request.form['balance_amount'])
         due_date = request.form['due_date']
         parent_contact = request.form['parent_contact']
-
-        if len(contact) != 10 or not contact.isdigit():
-            flash('Invalid contact number!')
-            return redirect(url_for('submit_admission'))
-
-        id_proof = request.files['id_proof']
-        marksheet = request.files['marksheet']
-
-        id_proof_filename = secure_filename(id_proof.filename)
-        marksheet_filename = secure_filename(marksheet.filename)
-
-        id_proof_path = os.path.join(app.config['UPLOAD_FOLDER'], id_proof_filename)
-        marksheet_path = os.path.join(app.config['UPLOAD_FOLDER'], marksheet_filename)
         
-        id_proof.save(id_proof_path)
-        marksheet.save(marksheet_path)
-
-        df = pd.read_excel(ADMISSION_DATA_FILE)
-        new_row = pd.DataFrame({
-            'Name': [name], 'Contact': [contact], 'Father\'s Name': [fathers_name],
-            'Mother\'s Name': [mothers_name], 'Address': [address], 'Fees Paid': [fees_paid],
-            'Payment Date': [payment_date], 'Total Amount': [total_amount],
-            'Balance Amount': [balance_amount], 'Due Date': [due_date],
-            'Parent Contact': [parent_contact], 'ID Proof': [id_proof_filename],
-            'Marksheet': [marksheet_filename]
-        })
-        df = pd.concat([df, new_row], ignore_index=True)
-        df.to_excel(ADMISSION_DATA_FILE, index=False)
-
-        flash('Admission form submitted successfully!')
-        return redirect(url_for('home'))
-    
+        # Save files
+        request.files['id_proof'].save(os.path.join('uploads', id_proof))
+        request.files['marksheet'].save(os.path.join('uploads', marksheet))
+        
+        # Insert data into database
+        conn = sqlite3.connect('admission_portal.db')
+        c = conn.cursor()
+        c.execute('''INSERT INTO admissions 
+                     (user_id, name, contact_number, father_name, mother_name, address, 
+                     id_proof, marksheet, fees_paid, payment_date, total_amount, 
+                     balance_amount, due_date, parent_contact) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                  (session['user_id'], name, contact_number, father_name, mother_name, 
+                   address, id_proof, marksheet, fees_paid, payment_date, total_amount, 
+                   balance_amount, due_date, parent_contact))
+        conn.commit()
+        conn.close()
+        
+        return "Admission form submitted successfully"
     return render_template('submit_admission.html')
+
+@app.route('/logout')
+def logout():
+    session.pop('user_id', None)
+    return redirect(url_for('index'))
+
+
+import pandas as pd
+
+def export_users_to_excel():
+    conn = sqlite3.connect('admission_portal.db')
+    users_df = pd.read_sql_query("SELECT * FROM users", conn)
+    users_df.to_excel('user_data.xlsx', index=False)
+    conn.close()
+
+def export_admissions_to_excel():
+    conn = sqlite3.connect('admission_portal.db')
+    admissions_df = pd.read_sql_query("SELECT * FROM admissions", conn)
+    admissions_df.to_excel('admission_data.xlsx', index=False)
+    conn.close()
 
 if __name__ == '__main__':
     app.run(debug=True)
