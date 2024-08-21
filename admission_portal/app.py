@@ -1,27 +1,55 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 from werkzeug.security import generate_password_hash, check_password_hash
-import sqlite3
+import mysql.connector
+from mysql.connector import Error
 import os
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
 
+db_config = {
+    'host': 'localhost',
+    'user': 'root',
+    'password': 'root',
+    'database': 'admission_portal'
+}
+
+def create_connection():
+    connection = None
+    try:
+        connection = mysql.connector.connect(**db_config)
+        print("Successfully connected to MySQL database")
+    except Error as e:
+        print(f"Error: '{e}'")
+    return connection
+
 def init_db():
-    conn = sqlite3.connect('admission_portal.db')
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users
-                 (id INTEGER PRIMARY KEY, email TEXT, username TEXT, phone TEXT, password TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS admissions
-                 (id INTEGER PRIMARY KEY, user_id INTEGER, name TEXT, contact_number TEXT, 
-                 father_name TEXT, mother_name TEXT, address TEXT, id_proof TEXT, 
-                 marksheet TEXT, fees_paid REAL, payment_date TEXT, total_amount REAL, 
-                 balance_amount REAL, due_date TEXT, parent_contact TEXT)''')
-    conn.commit()
-    conn.close()
+    connection = create_connection()
+    if connection:
+        try:
+            cursor = connection.cursor()
 
-init_db()
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    email VARCHAR(255) NOT NULL UNIQUE,
+                    username VARCHAR(255) NOT NULL UNIQUE,
+                    phone VARCHAR(20),
+                    password VARCHAR(255) NOT NULL
+                )
+            ''')
 
+            connection.commit()
+            print("Database initialized successfully")
+        except Error as e:
+            print(f"Error: '{e}'")
+        finally:
+            cursor.close()
+            connection.close()
+
+init_db
+    
 
 @app.route('/')
 def index():
@@ -35,33 +63,25 @@ def create_account():
         phone = request.form['phone']
         password = generate_password_hash(request.form['password'])
         
-        try:
-            conn = sqlite3.connect('admission_portal.db')
-            c = conn.cursor()
-            c.execute("INSERT INTO users (email, username, phone, password) VALUES (?, ?, ?, ?)",
-                     (email, username, phone, password))
-            conn.commit()
-            print(f"User created: {username}, {email}")
-        except sqlite3.Error as e:
-            print(f"Database error: {e}")
-            return "An error occurred while creating the account."
-        finally:
-            conn.close()
+        connection = create_connection()
+        if connection:
+            try:
+                cursor = connection.cursor()
+                cursor.execute("INSERT INTO users (email, username, phone, password) VALUES (%s, %s, %s, %s)",
+                               (email, username, phone, password))
+                connection.commit()
+                print(f"User created: {username}, {email}")
+                return redirect(url_for('login'))
+            except Error as e:
+                print(f"Error: '{e}'")
+                return "An error occurred while creating the account."
+            finally:
+                cursor.close()
+                connection.close()
+
         
-        return redirect(url_for('login'))
     return render_template('create_account.html')
 
-@app.route('/check_users')
-def check_users():
-    try:
-        conn = sqlite3.connect('admission_portal.db')
-        c = conn.cursor()
-        c.execute("SELECT id, email, username, phone FROM users")
-        users = c.fetchall()
-        conn.close()
-        return f"Users in database: {users}"
-    except sqlite3.Error as e :
-        return f"An error occured: {e}"
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -69,41 +89,36 @@ def login():
         username = request.form['username']
         password = request.form['password']
         
-        try:
-            conn = sqlite3.connect('admission_portal.db')
-            c = conn.cursor()
-            c.execute("SELECT * FROM users WHERE username = ? OR email = ?", (username, username))
-            user = c.fetchone()
-            conn.close()
-        
-            if user:
-                if check_password_hash(user[4], password):
-                    session['user_id'] = user[0]
-                    print(f"User {user[0]} logged in successfully")
+        connection = create_connection()
+        if connection:
+            try:
+                cursor = connection.cursor(dictionary=True)
+                cursor.execute("SELECT * FROM users WHERE username = %s OR email = %s", (username, username))
+                user = cursor.fetchone()
+
+                if user and check_password_hash(user['password'], password):
+                    session['user_id'] = user['id']
+                    print(f"Login successful for user: {username}")
                     return redirect(url_for('submit_admission'))
                 else:
-                    print(f"Invalid password for user {username}")
+                    print(f"Invalid login attempt for user: {username}")
                     return "Invalid username or password"
-            else:
-                print(f"Invalid password for user {username}")
-                return "Invalid username or password"
-        except sqlite3.Error as e:
-            print(f"Database error: {e}")
-            return "An error occured during login"
+            except Error as e :
+                print(f"Error: '{e}'")
+                return "An error occurred during login"
+            finally:
+                cursor.close()
+                connection.close()
+
     return render_template('login.html')
 
 @app.route('/submit_admission', methods=['GET', 'POST'])
 def submit_admission():
-
-    print(f"Current session: {session}")
     if 'user_id' not in session:
-        print("User not in session, redirecting to login")
         return redirect(url_for('login'))
     
-    print(f"User {session['user_id']} accessing submit_admission")
-
     if request.method == 'POST':
-        # Extract form data
+        user_id = session['user_id']
         name = request.form['name']
         contact_number = request.form['contact_number']
         father_name = request.form['father_name']
@@ -116,48 +131,36 @@ def submit_admission():
         total_amount = float(request.form['total_amount'])
         balance_amount = float(request.form['balance_amount'])
         due_date = request.form['due_date']
-        parent_contact = request.form['parent_contact']
-        
-        # Save files
-        request.files['id_proof'].save(os.path.join('uploads', id_proof))
-        request.files['marksheet'].save(os.path.join('uploads', marksheet))
-        
-        # Insert data into database
-        conn = sqlite3.connect('admission_portal.db')
-        c = conn.cursor()
-        c.execute('''INSERT INTO admissions 
-                     (user_id, name, contact_number, father_name, mother_name, address, 
-                     id_proof, marksheet, fees_paid, payment_date, total_amount, 
-                     balance_amount, due_date, parent_contact) 
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                  (session['user_id'], name, contact_number, father_name, mother_name, 
-                   address, id_proof, marksheet, fees_paid, payment_date, total_amount, 
-                   balance_amount, due_date, parent_contact))
-        conn.commit()
-        conn.close()
-        
-        return "Admission form submitted successfully"
+        parent_concat = request.form['parent_cotact']
+
+
+        connection = create_connection()
+        if connection:
+            try:
+                cursor = connection.cursor()
+                cursor.execute('''
+                    INSERT INTO admissions
+                    (user_id, name, contact_number, father_name, mother_name, address,
+                    id_proof, marksheet, fees_paid, payment_date, total_amount,
+                    balance_amount, due_date, parent_contact)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ''', (user_id, name, contact_number, father_name, mother_name, address,
+                      id_proof, marksheet, fees_paid, payment_date, total_amount,
+                      balance_amount, due_date, parent_concat))
+                connection.commit()
+                print(f"Admission submitted for user: {user_id}")
+                return "Admission form submitted successfully"
+            except Error as e:
+                print(f"Error: '{e}'")
+                return "An error occurred while submitting the admission form."
+            finally:
+                cursor.close()
+                connection.close()
+
+   
     return render_template('submit_admission.html')
 
-@app.route('/logout')
-def logout():
-    session.pop('user_id', None)
-    return redirect(url_for('index'))
 
-
-import pandas as pd
-
-def export_users_to_excel():
-    conn = sqlite3.connect('admission_portal.db')
-    users_df = pd.read_sql_query("SELECT * FROM users", conn)
-    users_df.to_excel('user_data.xlsx', index=False)
-    conn.close()
-
-def export_admissions_to_excel():
-    conn = sqlite3.connect('admission_portal.db')
-    admissions_df = pd.read_sql_query("SELECT * FROM admissions", conn)
-    admissions_df.to_excel('admission_data.xlsx', index=False)
-    conn.close()
 
 if __name__ == '__main__':
     app.run(debug=True)
