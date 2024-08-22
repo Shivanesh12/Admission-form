@@ -3,6 +3,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import mysql.connector
 from mysql.connector import Error
 import os
+from openpyxl import Workbook, load_workbook
+from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -149,18 +151,40 @@ def submit_admission():
                       balance_amount, due_date, parent_concat))
                 connection.commit()
                 print(f"Admission submitted for user: {user_id}")
-                return "Admission form submitted successfully"
-            except Error as e:
-                print(f"Error: '{e}'")
-                return "An error occurred while submitting the admission form."
+
+
+
+                excel_file = 'admissions.xlsx'
+                if not os.path.exists(excel_file):
+                    wb = Workbook()
+                    ws = wb.active
+                    ws.append(['User ID', 'Name', 'Contact number', 'Father\'s Name', 'Mother\'s Name',
+                    'Address', 'ID Proof', 'Marksheet', 'Fees Paid', 'Payment Date',
+                    'Total AMount', 'Balance Amount', 'Due Date', 'Parent Contact', 'Admission Date'])
+                else:
+                    wb = load_workbook(excel_file)
+                    ws = wb.active
+
+                ws.append([user_id, name, contact_number, father_name, mother_name, address,
+                           id_proof, marksheet, fees_paid, payment_date, total_amount,
+                           balance_amount, due_date, parent_concat, datetime.now().strftime('%Y-%m-%d %H:%M:%S')])
+
+                wb.save(excel_file)
+                print(f"Admission details aded to Excel file: {excel_file}")
+
+                return "Admission form submitted successfully and details added to Excel sheet"
+            except mysql.connector.Error as e:
+                print(f"MySQl Error: {e}")
+                return f"An error occurred while submitting the admisssion form: {str(e)}"
+            except Exception as e:
+                print(f"Unexpected error: {e}")
+                return f"AN unexpected error occurred: {str(e)}"
             finally:
                 cursor.close()
                 connection.close()
+        return render_template('submit_admission.html')
 
-   
-    return render_template('submit_admission.html')
-
-
+             
 
 if __name__ == '__main__':
     app.run(debug=True)
