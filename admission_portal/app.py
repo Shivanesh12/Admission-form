@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 from werkzeug.security import generate_password_hash, check_password_hash
 import mysql.connector
-from mysql.connector import Error
+from mysql.connector import connect, Error
 import os
 from openpyxl import Workbook, load_workbook
 from datetime import datetime
@@ -18,13 +18,19 @@ db_config = {
 }
 
 def create_connection():
-    connection = None
+    
     try:
-        connection = mysql.connector.connect(**db_config)
-        print("Successfully connected to MySQL database")
+        connection = connect(
+            host="localhost",
+            user="root",
+            password="root",
+            database="admission_portal"
+        )
+        print("Database connection successful")
+        return connection
     except Error as e:
-        print(f"Error: '{e}'")
-    return connection
+        print(f"Error connecting to database: '{e}'")
+        return None
 
 def init_db():
     connection = create_connection()
@@ -34,11 +40,11 @@ def init_db():
 
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS users (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    email VARCHAR(255) NOT NULL UNIQUE,
+                    email VARCHAR(255) PRIMARY KEY,
                     username VARCHAR(255) NOT NULL UNIQUE,
                     phone VARCHAR(20),
-                    password VARCHAR(255) NOT NULL
+                    password VARCHAR(255) NOT NULL,
+                    confirmpassword VARCHAR(255) NOT NULL
                 )
             ''')
 
@@ -50,12 +56,56 @@ def init_db():
             cursor.close()
             connection.close()
 
-init_db
+init_db()
     
 
 @app.route('/')
 def index():
     return render_template('index.html')
+
+    
+
+# @app.route('/create_account', methods=['GET', 'POST'])
+# def create_account():
+#     if request.method == 'POST':
+#         email = request.form['email']
+#         username = request.form['username']
+#         phone = request.form['phone']
+#         password = generate_password_hash(request.form['password'])
+        
+        
+#         connection = create_connection()
+#         if connection:
+#             try:
+#                 cursor = connection.cursor()
+#                 cursor.execute("INSERT INTO admission_portal.users VALUES (%s, %s, %s, %s,%s)",
+#                                (email, username, phone, password,confirmpassword))
+#                 connection.commit()
+#                 print(f"User created: {username}, {email}")
+#                 return redirect(url_for('login'))
+#             except Error as e:
+#                 print(f"Error: '{e}'")
+#                 return "An error occurred while creating the account."
+#             finally:
+#                 cursor.close()
+#                 connection.close()
+
+  
+#     return render_template('create_account.html')
+ 
+def create_connection():
+    try:
+        connection = connect(
+            host="localhost",        # Update with your database host
+            user="yourusername",     # Update with your database username
+            password="yourpassword", # Update with your database password
+            database="admission_portal" # Update with your database name
+        )
+        print("Database connection successful")
+        return connection
+    except Error as e:
+        print(f"Error connecting to database: '{e}'")
+        return None
 
 @app.route('/create_account', methods=['GET', 'POST'])
 def create_account():
@@ -63,27 +113,39 @@ def create_account():
         email = request.form['email']
         username = request.form['username']
         phone = request.form['phone']
-        password = generate_password_hash(request.form['password'])
-        
+        password = request.form['password']
+        confirmpassword = request.form['confirmpassword']
+
+        if password != confirmpassword:
+            print("Passwords do not match")
+            return "Passwords do not match. Please try again."
+
+        hashed_password = generate_password_hash(password)
+
         connection = create_connection()
         if connection:
             try:
                 cursor = connection.cursor()
+
+                # Specify column names explicitly, without confirmpassword
                 cursor.execute("INSERT INTO users (email, username, phone, password) VALUES (%s, %s, %s, %s)",
-                               (email, username, phone, password))
+                               (email, username, phone, hashed_password))
+                
                 connection.commit()
                 print(f"User created: {username}, {email}")
                 return redirect(url_for('login'))
             except Error as e:
-                print(f"Error: '{e}'")
+                print(f"Error inserting user into database: '{e}'")
                 return "An error occurred while creating the account."
             finally:
                 cursor.close()
                 connection.close()
-
-        
+                print("Database connection closed")
+        else:
+            print("Failed to connect to the database.")
+            return "Database connection error."
+  
     return render_template('create_account.html')
-
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -105,7 +167,7 @@ def login():
                 else:
                     print(f"Invalid login attempt for user: {username}")
                     return "Invalid username or password"
-            except Error as e :
+            except Error as e:
                 print(f"Error: '{e}'")
                 return "An error occurred during login"
             finally:
@@ -178,7 +240,7 @@ def submit_admission():
                 return f"An error occurred while submitting the admisssion form: {str(e)}"
             except Exception as e:
                 print(f"Unexpected error: {e}")
-                return f"AN unexpected error occurred: {str(e)}"
+                return f"An unexpected error occurred: {str(e)}"
             finally:
                 cursor.close()
                 connection.close()
